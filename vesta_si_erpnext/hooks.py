@@ -131,7 +131,8 @@ doc_events = {
 	"Purchase Invoice": {
 		"on_update_after_submit": "vesta_si_erpnext.vesta_si_erpnext.doc_events.purchase_invoice.set_due_date_after_submit",
 		"validate" : "vesta_si_erpnext.vesta_si_erpnext.doc_events.purchase_invoice.validate",
-		# "on_submit" : "vesta_si_erpnext.vesta_si_erpnext.doc_events.purchase_invoice.on_submit"
+		"on_submit" : "vesta_si_erpnext.vesta_si_erpnext.doc_events.purchase_invoice.on_submit",
+		"on_cancel":  "vesta_si_erpnext.vesta_si_erpnext.doc_events.purchase_invoice.on_cancel",
 	},
 	"GL Entry":{
 		'validate': "vesta_si_erpnext.vesta_si_erpnext.doc_events.sales_invoice.check_account_frozzen_date",
@@ -139,6 +140,9 @@ doc_events = {
 	"Sales Invoice":{
 		'before_validate':"vesta_si_erpnext.vesta_si_erpnext.doc_events.sales_invoice.set_exchange_rate",
 		'validate':"vesta_si_erpnext.vesta_si_erpnext.doc_events.sales_invoice.validate",
+	},
+	"Journal Entry":{
+		"on_cancel":"vesta_si_erpnext.vesta_si_erpnext.doc_events.journal_entry.check_pi_link"
 	}
 }
 
@@ -178,7 +182,6 @@ override_whitelisted_methods = {
 override_doctype_class = {
 	"Stock Entry": "vesta_si_erpnext.vesta_si_erpnext.stock_entry.CustomStockEntry",
 	"Purchase Invoice": "vesta_si_erpnext.overrides.purchase_invoice.CustomPurchaseInvoice",
-	"Asset" : "vesta_si_erpnext.vesta_si_erpnext.asset.CustomAsset"
 	}
 
 #

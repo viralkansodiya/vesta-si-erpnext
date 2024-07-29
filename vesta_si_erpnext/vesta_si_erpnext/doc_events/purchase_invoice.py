@@ -46,6 +46,17 @@ def validate(self, method):
 			message += "</table>"
 			frappe.msgprint(message)
 
+	for row in self.items:
+		is_stock_item = frappe.db.get_value("Item", row.item_code, "is_stock_item")
+		if is_stock_item and row.purchase_receipt and row.pr_detail:
+			pri_doc = frappe.get_doc("Purchase Receipt Item", row.pr_detail)
+			if pri_doc.base_rate < row.base_rate:
+				rate_diff = row.base_rate - pri_doc.base_rate
+				frappe.msgprint(f"Row #{row.idx} : <b>{rate_diff}</b> {self.currency} gratter then purchase receipt {row.purchase_receipt}")
+			if pri_doc.base_rate > row.base_rate:
+				rate_diff =  pri_doc.base_rate - row.base_rate
+				frappe.msgprint(f"Row #{row.idx} : <b>{rate_diff}</b> {self.currency} lower then purchase receipt {row.purchase_receipt}")
+
 def get_advance_entries(self):
 	res = self.get_advance_entries(
 			include_unallocated=not cint(self.get("only_include_allocated_payments"))
@@ -60,7 +71,7 @@ def on_submit(self, method):
 		if is_stock_item and row.purchase_receipt and row.pr_detail:
 			pri_doc = frappe.get_doc("Purchase Receipt Item", row.pr_detail)
 			if pri_doc.base_rate < row.base_rate:
-				rate_diff = row.base_rate - pri_doc.base_rate
+				rate_diff = (row.base_rate * row.qty) - (pri_doc.base_rate * pri_doc.qty)
 				jv = frappe.new_doc("Journal Entry")
 				jv.voucher_type = "Journal Entry"
 				jv.posting_date = getdate()
@@ -90,3 +101,42 @@ def on_submit(self, method):
 					get_link_to_form("Purchase Receipt", row.purchase_receipt),
 					get_link_to_form("Journal Entry",jv.name)
 				))
+			if pri_doc.base_rate > row.base_rate:
+				rate_diff = (pri_doc.base_rate * pri_doc.qty) - (row.base_rate * row.qty)
+				jv = frappe.new_doc("Journal Entry")
+				jv.voucher_type = "Journal Entry"
+				jv.posting_date = getdate()
+				if row.expense_account in ["222501 - Goods & services received/Invoice received - non SKF - 9150", "222503 - Goods & services received/Invoice received - non SKF - 9150"]:
+					jv.append("accounts", {
+						"account" : row.expense_account,
+						"credit_in_account_currency" : rate_diff
+					})
+				else:
+					expense_account = frappe.db.get_value("Company", jv.company, "stock_received_but_not_billed")
+					jv.append("accounts", {
+						"account" : expense_account,
+						"credit_in_account_currency" : rate_diff
+					})
+				tranfer_account = frappe.db.get_value("Company", jv.company, "custom_difference_account_purchase_receipt_and_purchase_invoice")
+				jv.append("accounts", {
+					"account" : tranfer_account,
+					"debit_in_account_currency" : rate_diff
+				})
+				jv.cheque_no = self.name
+				jv.cheque_date = getdate()
+				jv.save()
+				jv.submit()
+				frappe.msgprint("The difference of <span style='color:red'>{0}</span> SEK between the purchase invoice {1} and the purchase receipt {2} is recorded in this journal entry {3}.".format(
+					frappe.bold(rate_diff),
+					get_link_to_form("Purchase Invoice", self.name),
+					get_link_to_form("Purchase Receipt", row.purchase_receipt),
+					get_link_to_form("Journal Entry", jv.name)
+				))
+
+def on_cancel(self, method):
+	data = frappe.db.sql(f"Select name From `tabJournal Entry` Where cheque_no = '{self.name}'",as_dict = 1)
+	if data:
+		frappe.db.set_value("Journal Entry", data[0].name, "cheque_no", '')
+		doc = frappe.get_doc("Journal Entry", data[0].name)
+		doc.cancel()
+		frappe.msgprint(f"Journal Entry {doc.name} has been cancelled")
