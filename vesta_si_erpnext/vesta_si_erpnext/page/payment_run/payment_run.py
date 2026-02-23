@@ -1,4 +1,4 @@
-NewXML
+#NewXML
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
@@ -205,6 +205,7 @@ def get_payment_entry(
 	pe.contact_person = doc.get("contact_person")
 	pe.contact_email = doc.get("contact_email")
 	pe.ensure_supplier_is_not_blocked()
+	pe.custom_payment_run_type = payment_run_type
 	settings = frappe.get_doc("Payment Run Setting")
 	for row in settings.payment_account:
 		if row.currency == doc.currency:
